@@ -7,7 +7,6 @@ if False:  # don't include if actually running
 
 def make_camlist():  # type: () -> List[cv2.VideoCapture]
     cam_list = []  # type: List[cv2.VideoCapture]
-    print(type(cv2.VideoCapture()))
 
     while len(cam_list) == 0 or cam_list[-1].isOpened():
         cam_list.append(cv2.VideoCapture(len(cam_list)))
