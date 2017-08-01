@@ -14,7 +14,7 @@ import threading
 class CamInputThread(QtCore.QThread):
     # thanks: https://stackoverflow.com/a/40537178
     sig = QtCore.pyqtSignal(list)
-    fps = 24
+    fps = 60
     retry_seconds = 2.0
 
     e = threading.Event()
@@ -32,6 +32,10 @@ class CamInputThread(QtCore.QThread):
         self.sig.connect(parent.update_frames)
 
         self.cam_list = make_camlist()
+        #todo: handle different resolutions
+        self.cam_list[0].set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cam_list[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.cam_list[0].set(cv2.CAP_PROP_FPS, 60)
 
     def run(self):
         while True:
@@ -52,6 +56,8 @@ class CamInputThread(QtCore.QThread):
             self.sig.emit(frame_list)
 
             self.previous_time = self.current_time
+
+
 
 class QGLWidget(QtOpenGL.QGLWidget):
     def __init__(self):
@@ -77,6 +83,7 @@ class QGLWidget(QtOpenGL.QGLWidget):
 
         frame = cv2.imread(os.path.join(os.path.dirname(__file__), 'no_input.jpg'), cv2.IMREAD_COLOR) # type: np.ndarray
 
+        #todo: allow resetting of texture for different sizes (close and reopen texture)
         self.texture = self.ctx.texture((frame.shape[1],frame.shape[0]), frame.shape[2], frame.tobytes())
 
         self.texture.use()
@@ -96,25 +103,37 @@ class QGLWidget(QtOpenGL.QGLWidget):
             self.ctx.fragment_shader('''
                 #version 330
                 uniform sampler2D texture;
+                uniform float barrel_amount;
                 in vec2 v_tex_coord;
                 out vec4 color;
 
 
-                vec2 fisheye(vec2 in_pos){
-                    return in_pos;
+                vec2 fisheye(vec2 in_pos, float amount){
+                    //from: https://stackoverflow.com/a/6227310
+
+                    vec2 center_xform_vec = vec2(0.5, 0.5);
+                    float center_xform_vec_len = length(center_xform_vec);
+                    vec2 r = (in_pos - center_xform_vec);
+                    float r_len = length(r);
+                    vec2 barrel_vec = (r * (1+ amount * r_len * r_len));
+
+                    float barrel_max = (sqrt(1+(720.0/1280.0)*(720.0/1280.0)) * (1+abs(amount)*center_xform_vec_len*center_xform_vec_len));
+                    vec2 barrel_norm = barrel_vec/barrel_max + .5;
+
+                    return barrel_norm;
                 }
 
                 void main() {
-                    vec2 new_coord = vec2(v_tex_coord.x, v_tex_coord.y);
+                    vec2 new_coord = fisheye(v_tex_coord, barrel_amount);
                     //vec2 new_coord = v_tex_coord;
-                    color = vec4(texture2D(texture, new_coord).rgb, 1.0);
-
-
-
+                    color = vec4( texture2D(texture, new_coord).bgr, 1.0);
 
                 }
             '''),
         ])
+
+        self.barrel_amount = prog.uniforms['barrel_amount']
+        self.barrel_amount.value = 2
 
         vbo = self.ctx.buffer(struct.pack(
             '24f',
@@ -143,6 +162,6 @@ class QGLWidget(QtOpenGL.QGLWidget):
 app = QtWidgets.QApplication([])
 window = QGLWidget()
 #window.move(QtWidgets.QDesktopWidget().rect().center() - window.rect().center())
-window.resize(640, 480)
+window.resize(1280, 720)
 window.show()
 app.exec_()
