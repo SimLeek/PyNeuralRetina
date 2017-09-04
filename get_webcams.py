@@ -13,7 +13,6 @@ def make_camlist():  # type: () -> List[cv2.VideoCapture]
 
     return cam_list
 
-
 def capture_cams(cam_list  # type: List[cv2.VideoCapture]
                  ):  # type: (...) -> List[np.ndarray]
     frame_list = []
@@ -38,6 +37,7 @@ def show_cams(cam_list  # type: List[cv2.VideoCapture]
     while True:
         frame_list = capture_cams(cam_list)
         for f in range(len(frame_list)):
+            print(frame_list[f].shape)
             cv2.imshow('frame' + str(f), frame_list[f])
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
