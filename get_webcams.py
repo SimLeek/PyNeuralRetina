@@ -49,6 +49,16 @@ def end_cams(cam_list  # type: List[cv2.VideoCapture]
         cam.release()
 
 
+import celery
+import celery_pubsub
+
+@celery.task
+def get_stream_list():
+    cams = make_camlist()
+    return cams
+
+celery_pubsub.publish('cam.0', data='frame', value=np.ndarray)
+
 if __name__ == "__main__":
     cams = make_camlist()
     show_cams(cams)
