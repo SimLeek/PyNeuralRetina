@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 class CamInputThread(QtCore.QThread):
     # thanks: https://stackoverflow.com/a/40537178
-    sig = QtCore.pyqtSignal(list)
+    sig = QtCore.pyqtSignal(np.ndarray)
     fps = 60
     retry_seconds = 2.0
 
@@ -58,7 +58,7 @@ class CamInputThread(QtCore.QThread):
 
         self.parent = parent
 
-        self.sig.connect(parent.update_frames)
+        self.sig.connect(parent.update_frame)
 
         self.cam_list = make_camlist()
         # todo: handle different resolutions
@@ -105,7 +105,7 @@ class CamInputThread(QtCore.QThread):
             frame_list = capture_cams(self.cam_list)
 
             if (self.got_frames(frame_list)):
-                self.sig.emit(frame_list)
+                self.sig.emit(frame_list[0])
 
 
 class QGLWidget(QtOpenGL.QGLWidget):
@@ -113,12 +113,12 @@ class QGLWidget(QtOpenGL.QGLWidget):
 
     def __init__(self):
         logging.debug("QGLWidget __init__ entered")
-        self.tex = []  # type: List[ModernGL.Texture]
-        self.set_frame_shapes = []  # type: List[Tuple[int]]
-        self.progs = []  # type: List[ModernGL.Program]
-        self.barrel_amounts = []
-        self.ctx = []  # type: List[ModernGL.Context]
-        self.vao = []  # type: List[ModernGL.VertexArray]
+        self.tex = None  # type: ModernGL.Texture
+        self.set_frame_shape = None  # type: Tuple[int]
+        self.progs = None  # type: ModernGL.Program
+        self.barrel_amount = int
+        self.ctx = None  # type: ModernGL.Context
+        self.vao = None  # type: ModernGL.VertexArray
 
 
         fmt = QtOpenGL.QGLFormat()
@@ -144,161 +144,123 @@ class QGLWidget(QtOpenGL.QGLWidget):
                 self.close()
 
     # @pyqtSlot(list)
-    def update_frames(self,
-                      frame_list  # type: List[np.ndarray]
-                      ):
+    def update_frame(self, frame):
         logging.debug("update_frames entered")
-        if all(frame_list[i].shape == self.set_frame_shapes[i] for i in range(len(frame_list))):
-            for f in range(len(frame_list)):
-                self.tex[f].write(frame_list[f].tobytes())
+        if frame.shape[0] == self.set_frame_shape[0] and frame.shape[1] == self.set_frame_shape[1]:
+            self.tex.write(frame.tobytes())
         else:
-            self.release_gl()
-            self.init_gl(frame_list)
+            #self.release_gl()
+            self.init_gl(frame)
 
     def release_gl(self):
         logging.debug("release_gl entered")
-        for i in range(len(self.ctx)):
-            logging.debug("releasing context " +str(i))
-            if not isinstance(self.ctx[i], ModernGL.InvalidObject):
-                logging.debug("context was valid")
-                self.ctx[i].release()
-                logging.debug("context released")
-                self.tex[i].release()
-                logging.debug("tex released")
-                self.progs[i].release()
-                logging.debug("progs released")
+        if not isinstance(self.ctx, ModernGL.InvalidObject):
+            logging.debug("context was valid")
+            self.ctx.release()
+            logging.debug("context released")
+            self.tex.release()
+            logging.debug("tex released")
+            self.progs.release()
+            logging.debug("progs released")
 
-    def init_gl(self, frames):
+    def init_gl(self, frame):
         logging.debug("init_gl entered")
 
-        self.tex[:] = []  # type: List[ModernGL.Texture]
-        self.set_frame_shapes[:] = []  # type: List[Tuple[int]]
-        self.progs[:] = []  # type: List[ModernGL.Program]
-        self.barrel_amounts[:] = []
-        self.ctx[:] = []  # type: List[ModernGL.Context]
-        self.vao[:] = []  # type: List[ModernGL.VertexArray]
+        self.tex = None  # type: ModernGL.Texture
+        self.set_frame_shape = None  # type: Tuple[int]
+        self.progs = None  # type: ModernGL.Program
+        self.barrel_amount = int
+        self.ctx = None  # type: ModernGL.Context
+        self.vao = None  # type: ModernGL.VertexArray
 
-        vbo = []
+        vbo : ModernGL.Buffer = None
 
-        for frame in frames:
-            logging.debug("frame"+str(len(self.ctx)+1) + "entered")
-            self.ctx.append(ModernGL.create_context())
-            self.ctx[-1].enable(ModernGL.DEPTH_TEST)
-            logging.debug("context made")
+        logging.debug("frame entered")
+        self.ctx = ModernGL.create_context()
+        self.ctx.enable(ModernGL.DEPTH_TEST)
+        logging.debug("context made")
 
-            vbo.append(self.ctx[-1].buffer(struct.pack(
-                '24f',
-                -1.0, -1.0, 0.0, 1.0,
-                -1.0, 1.0, 0.0, 0.0,
-                1.0, 1.0, 1.0, 0.0,
-                1.0, -1.0, 1.0, 1.0,
-                -1.0, -1.0, 0.0, 1.0,
-                1.0, 1.0, 1.0, 0.0,
+        vbo = (self.ctx.buffer(struct.pack(
+            '24f',
+            -1.0, -1.0, 0.0, 1.0,
+            -1.0, 1.0, 0.0, 0.0,
+            1.0, 1.0, 1.0, 0.0,
+            1.0, -1.0, 1.0, 1.0,
+            -1.0, -1.0, 0.0, 1.0,
+            1.0, 1.0, 1.0, 0.0,
 
-            )))
-            logging.debug("vbo made")
+        )))
+        logging.debug("vbo made")
 
-            # todo: allow resetting of tex for different sizes (close and reopen tex)
-            self.tex.append(self.ctx[-1].texture((frame.shape[1], frame.shape[0]), frame.shape[2], frame.tobytes()))
+        # todo: allow resetting of tex for different sizes (close and reopen tex)
+        self.tex = (self.ctx.texture((frame.shape[1], frame.shape[0]), frame.shape[2], frame.tobytes()))
 
-            self.set_frame_shapes.append(frame.shape)
+        self.set_frame_shape = (frame.shape)
 
-            self.tex[-1].use(location = len(self.ctx) - 1)
+        self.tex.use()
 
-            logging.debug("tex made")
+        logging.debug("tex made")
 
-            self.progs.append(self.ctx[-1].program([
-                self.ctx[-1].vertex_shader('''
-                            #version 330
-                            in vec2 vert;
-                            in vec2 tex_coord;
-                            out vec2 v_tex_coord;
-                            void main() {
-                                gl_Position = vec4(vert, 0.0, 1.0);
-                                v_tex_coord = tex_coord;
-                            }
-                        '''),
-                self.ctx[-1].fragment_shader('''
-                            #version 330
-                            uniform sampler2D tex0;
-                            uniform sampler2D tex1;
-                            uniform float barrel_amount;
-                            in vec2 v_tex_coord;
-                            out vec4 color;
-    
-                            vec2 fisheye(vec2 in_pos, float amount){
-                                //from: https://stackoverflow.com/a/6227310
-    
-                                vec2 center_xform_vec = vec2(0.5, 0.5);
-                                float center_xform_vec_len = length(center_xform_vec);
-                                vec2 r = (in_pos - center_xform_vec);
-                                float r_len = length(r);
-                                vec2 barrel_vec = (r * (1+ amount * r_len * r_len));
-    
-                                float barrel_max = (sqrt(1+(720.0/1280.0)*(720.0/1280.0)) * (1+abs(amount)*center_xform_vec_len*center_xform_vec_len));
-                                vec2 barrel_norm = barrel_vec/barrel_max + .5;
-    
-                                return barrel_norm;
-                            }
-    
-                            void main() {
-                                vec2 new_coord = fisheye(v_tex_coord, barrel_amount);
-                                //vec2 new_coord = v_tex_coord;
-                                color = vec4( texture(tex%d, new_coord).bgr, 1.0);
-    
-                            }
-                        ''' % (len(self.ctx)-1))
-            ]))
+        self.prog = (self.ctx.program([
+            self.ctx.vertex_shader('''
+                        #version 330
+                        in vec2 vert;
+                        in vec2 tex_coord;
+                        out vec2 v_tex_coord;
+                        void main() {
+                            gl_Position = vec4(vert, 0.0, 1.0);
+                            v_tex_coord = tex_coord;
+                        }
+                    '''),
+            self.ctx.fragment_shader('''
+                        #version 330
+                        uniform sampler2D tex;
+                        in vec2 v_tex_coord;
+                        out vec4 color;
 
-            logging.debug("prog made")
+                        void main() {
+                            //vec2 new_coord = fisheye(v_tex_coord, barrel_amount);
+                            //vec2 new_coord = v_tex_coord;
+                            color = vec4( texture(tex, v_tex_coord).bgr, 1.0);
+
+                        }
+                    ''' )
+        ]))
+
+        logging.debug("prog made")
 
 
-            self.progs[-1].uniforms['tex%d'% (len(self.ctx)-1)].value = (len(self.ctx)-1)
+        #self.prog.uniforms['tex'].value = (0)
 
-            logging.debug("tex set")
+        logging.debug("tex set")
 
-            self.barrel_amounts.append(self.progs[-1].uniforms['barrel_amount'])
-            self.barrel_amounts[-1].value = 2
+        logging.debug("barrel set")
 
-            logging.debug("barrel set")
+        self.vao = self.ctx.simple_vertex_array(self.prog, vbo, ['vert', 'tex_coord'])
 
-            self.vao.append(self.ctx[-1].simple_vertex_array(self.progs[-1], vbo[-1], ['vert', 'tex_coord']))
-
-            logging.debug("vao made")
+        logging.debug("vao made")
 
     def initializeGL(self):
         logging.debug("initializeGL entered")
         frame = cv2.imread(os.path.join(os.path.dirname(__file__), 'no_input.jpg'),
                            cv2.IMREAD_COLOR)  # type: np.ndarray
-        self.init_gl([frame])
+        self.init_gl(frame)
 
         self.cam_thread.start()
 
     def paintGL(self):
         logging.debug("paintGL entered")
-        total_width = 0
-        for i in range(len(self.ctx)):
-            total_width += self.set_frame_shapes[i][1]
 
-        width_mult = self.width() / total_width
+        frame_width = self.set_frame_shape[1]
+        frame_height = self.set_frame_shape[0]
 
-        '''total_height = 0
-        for i in range(len(self.ctx)):
-            total_height = max(total_height,self.set_frame_shapes[i][0]*width_mult)
-        
-        height_mult = self.height() / total_height'''
-
-        current_x = 0
-
-        for i in range(len(self.ctx)):
-            if not isinstance(self.ctx[i], ModernGL.InvalidObject):
-                self.ctx[i].viewport = (current_x, 0, current_x + self.set_frame_shapes[i][1]*width_mult, self.set_frame_shapes[i][0]*width_mult)
-                current_x += self.set_frame_shapes[i][1]*width_mult
-                self.ctx[i].clear(0.9, 0.9, 0.9, viewport=self.ctx[i].viewport)
-                self.vao[i].render()
-                self.ctx[i].finish()
-            else:
-                return
+        if not isinstance(self.ctx, ModernGL.InvalidObject):
+            self.ctx.viewport = (0, 0, self.set_frame_shape[1], self.set_frame_shape[0])
+            self.ctx.clear(0.9, 0.9, 0.9)
+            self.vao.render()
+            self.ctx.finish()
+        else:
+            return
 
         self.update()
 
