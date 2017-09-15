@@ -1,6 +1,9 @@
 import numpy as np
 import cv2
 
+#todo: add dshow, v4l
+#todo: Make own repository and add to pip
+
 if False:  # don't include if actually running
     from typing import List, Tuple
 

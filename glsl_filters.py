@@ -1,20 +1,15 @@
-import numpy as np
-
-from get_webcams import *
-
-import ModernGL
-from PyQt5 import QtCore, QtOpenGL, QtWidgets, QtGui
-from PyQt5.QtCore import pyqtSlot
-import os
-import cv2
-import time
-import struct
-import threading
-
-
 # from https://stackoverflow.com/a/20663028/782170
 import argparse
 import logging
+import os
+import struct
+import threading
+import time
+
+import ModernGL
+from PyQt5 import QtCore, QtOpenGL, QtWidgets, QtGui
+
+from NeuralRetina.camera.get_webcams import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -218,10 +213,25 @@ class QGLWidget(QtOpenGL.QGLWidget):
                         in vec2 v_tex_coord;
                         out vec4 color;
 
+ vec2 fisheye(vec2 in_pos, float amount){
+                        //from: https://stackoverflow.com/a/6227310
+
+                        vec2 center_xform_vec = vec2(0.5, 0.5);
+                        float center_xform_vec_len = length(center_xform_vec);
+                        vec2 r = (in_pos - center_xform_vec);
+                        float r_len = length(r);
+                        vec2 barrel_vec = (r * (1+ amount * r_len * r_len));
+
+                        float barrel_max = (sqrt(1+(720.0/1280.0)*(720.0/1280.0)) * (1+abs(amount)*center_xform_vec_len*center_xform_vec_len));
+                        vec2 barrel_norm = barrel_vec/barrel_max + .5;
+
+                        return barrel_norm;
+                    }
+
                         void main() {
-                            //vec2 new_coord = fisheye(v_tex_coord, barrel_amount);
+                            vec2 new_coord = fisheye(v_tex_coord, 2);
                             //vec2 new_coord = v_tex_coord;
-                            color = vec4( texture(tex, v_tex_coord).bgr, 1.0);
+                            color = vec4( texture(tex, new_coord).bgr, 1.0);
 
                         }
                     ''' )

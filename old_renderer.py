@@ -1,14 +1,11 @@
-import numpy as np
-
-from get_webcams import *
+import struct
+import time
 
 import ModernGL
-from PyQt5 import QtCore, QtOpenGL, QtWidgets, QtGui
-from PyQt5.QtCore import pyqtSlot
-import os
-import cv2
-import time
-import struct
+from PyQt5 import QtCore, QtOpenGL, QtWidgets
+
+from NeuralRetina.camera.get_webcams import *
+
 
 class CamInputThread(QtCore.QThread):
     # thanks: https://stackoverflow.com/a/40537178
