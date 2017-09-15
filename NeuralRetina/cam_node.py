@@ -8,7 +8,6 @@ import cv2
 # todo: store cam info in json file.
 
 
-args = parser.parse_args()
 
 for arg in vars(args):
     print (arg, getattr(args, arg))
@@ -95,4 +94,7 @@ if hasattr(args, 'check'):
         while show_cams([ready_camera(i)]):
             i += 1
 
-
+if __name__ == '__main__':
+    from .camera.parse_args import parse_args
+    import sys
+    parse_args(sys.argv)

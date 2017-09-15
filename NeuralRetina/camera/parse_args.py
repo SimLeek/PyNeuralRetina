@@ -5,14 +5,42 @@ import argparse
 
 # todo: add ffmpeg, opencv, other camera getters as options
 
+
+class CamArgs:
+    update: bool
+    show: bool
+    publish: bool
+    publish_all: bool
+
+    ros: bool
+    redis: bool
+
+    max: bool
+    max_resolution: bool
+    max_fps: bool
+
+    all: bool
+    all_resolutions: bool
+    all_fps: bool
+
+    nonstandard: bool
+    nonstandard_resolutions: bool
+    nonstandard_fps: bool
+
+
 def parse_args(args):
     """Our argument parser.
     https://stackoverflow.com/a/18161115
     """
+
     parser = argparse.ArgumentParser(description="ready and broadcast all webcams through redis.")
 
-    parser.add_argument('-s', '--show', dest='publish', action='store_true',
-                        help="[DEFAULT BEHAVIOR] Publish camera frames through publisher subscriber.")
+    parser.add_argument('-u', '--update', dest='update', action='store_true',
+                        help="Update the camera system and store new data to JSON."
+                             " Useful if you changed plugs or broke something.")
+
+    parser.add_argument('-s', '--show', dest='show', action='store_true',
+                        help="Show the camera input in a window.")
 
     parser.add_argument('-p', '--publish', dest='publish', action='store_true',
                         help="[DEFAULT BEHAVIOR] Publish camera frames through publisher subscriber.")
@@ -20,39 +48,55 @@ def parse_args(args):
     parser.add_argument('--ros', dest='ros', action='store_true',
                         help="Publish and subscribe through ROS.")
 
-    parser.add_argument('--redis', dest='ros', action='store_true',
+    parser.add_argument('--redis', dest='redis', action='store_true',
                         help="Publish and subscribe through redis.")
 
-    parser.add_argument('--publish_all', dest='ros', action='store_true',
+    parser.add_argument('--publish_all', dest='publish_all', action='store_true',
                         help="Publish all cameras, instead of waiting for requests.")
 
+    root_group = parser.add_mutually_exclusive_group()
+    fps_and_res_group = root_group.add_mutually_exclusive_group()
+    fps_or_res_group = root_group.add_mutually_exclusive_group()
+    fps_group = fps_or_res_group.add_mutually_exclusive_group()
+    res_group = fps_or_res_group.add_mutually_exclusive_group()
+
+    res_group.add_argument('--nonstandard_resolutions', dest='nonstandard_resolutions', action='store_true',
+                           help="Check for resolutions typically only supported by special devices.")
+    fps_group.add_argument('--nonstandard_fps', dest='nonstandard_fps', action='store_true',
+                           help="Check for fps rates typically only supported by special devices.")
+    fps_and_res_group.add_argument('--nonstandard', dest='nonstandard', action='store_true',
+                                   help="Check for resolutions and fps rates typically only supported by special devices.")
+
+    res_group.add_argument('--all_resolutions', dest='all_resolutions', action='store_true',
+                           help="Check every single possible resolution. e.g., 640x480, 640x481, and so on. "
+                                "It could take a while.")
+    fps_group.add_argument('--all_fps', dest='all_fps', action='store_true',
+                           help="Check for fps rates typically only supported by special devices.")
+    fps_and_res_group.add_argument('--all', dest='all', action='store_true',
+                                   help="Check for resolutions and fps rates typically only supported by special devices.")
+
+    res_group.add_argument('--max_resolution', dest='max_resolution', action='store_true',
+                           help="Only check max resolution. ")
+    fps_group.add_argument('--max_fps', dest='max_fps', action='store_true',
+                           help="Only check max fps.")
+    fps_and_res_group.add_argument('--max', dest='max', action='store_true',
+                                   help="Only check max resolution and fps.")
+
+    _args: CamArgs = parser.parse_args(args)
+
+    if any([_args.all, _args.all_resolutions, _args.all_fps,
+            _args.nonstandard, _args.nonstandard_resolutions, _args.nonstandard_fps]) \
+            and not _args.update:
+        parser.error('-u must be used with any fps or resolution options (except max).')
+        raise SystemExit
+
+    if any([_args.publish_all, _args.ros, _args.redis]) and not _args.publish:
+        _args.publish = True
+
+    return _args
 
 
-    parser.add_argument('-c', '--check',  type=int, nargs='*', dest='check', default=argparse.SUPPRESS, action='store',
-                        help="Check camera resolutions and send to file. Camera numbers may be specified.")
+if __name__ == '__main__':
+    import sys
 
-    parser.add_argument('--nonstandard_resolutions', dest='nonstandard_resolutions', action='store_true',
-                        help="Check for resolutions typically only supported by special devices.")
-    parser.add_argument('--nonstandard_fps', dest='nonstandard_fps', action='store_true',
-                        help="Check for fps rates typically only supported by special devices.")
-    parser.add_argument('--nonstandard', dest='nonstandard', action='store_true',
-                        help="Check for resolutions and fps rates typically only supported by special devices.")
-
-    parser.add_argument('--all_resolutions', dest='all_resolutions', action='store_true',
-                        help="Check every single possible resolution. e.g., 640x480, 640x481, and so on. " 
-                             "It could take a while.")
-    parser.add_argument('--all_fps', dest='all_fps', action='store_true',
-                        help="Check for fps rates typically only supported by special devices.")
-    parser.add_argument('--all', dest='all', action='store_true',
-                        help="Check for resolutions and fps rates typically only supported by special devices.")
-
-    parser.add_argument('--max_resolution', dest='max_resolution', action='store_true',
-                        help="Only check max resolution. " )
-    parser.add_argument('--max_fps', dest='max_fps', action='store_true',
-                        help="Only check max fps.")
-    parser.add_argument('--max', dest='max', action='store_true',
-                        help="Only check max resolution and fps.")
-
-    #add checks here
-
-    return parser
+    parse_args(sys.argv)
