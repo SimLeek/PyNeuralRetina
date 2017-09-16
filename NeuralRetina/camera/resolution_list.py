@@ -3,8 +3,6 @@
 #or I could just copy paste
 
 #taken from: https://en.wikipedia.org/wiki/List_of_broadcast_video_formats
-
-
 standard_resolution_list = [(352, 240), (352, 288), (352, 480), (352, 576), (480, 480), (480, 576),
                             (640, 480), (720, 480), (720, 576), (1280, 720), (1366, 768),
                             (1920, 1080), (1920, 1200), (3840, 2160), (7680, 4320)]

@@ -27,6 +27,8 @@ class CamArgs:
     nonstandard_resolutions: bool
     nonstandard_fps: bool
 
+class RedundantArgumentWarning(Warning):
+    pass
 
 def parse_args(args):
     """Our argument parser.
@@ -54,40 +56,48 @@ def parse_args(args):
     parser.add_argument('--publish_all', dest='publish_all', action='store_true',
                         help="Publish all cameras, instead of waiting for requests.")
 
-    root_group = parser.add_mutually_exclusive_group()
-    fps_and_res_group = root_group.add_mutually_exclusive_group()
-    fps_or_res_group = root_group.add_mutually_exclusive_group()
-    fps_group = fps_or_res_group.add_mutually_exclusive_group()
-    res_group = fps_or_res_group.add_mutually_exclusive_group()
-
-    res_group.add_argument('--nonstandard_resolutions', dest='nonstandard_resolutions', action='store_true',
+    parser.add_argument('--nonstandard_resolutions', dest='nonstandard_resolutions', action='store_true',
                            help="Check for resolutions typically only supported by special devices.")
-    fps_group.add_argument('--nonstandard_fps', dest='nonstandard_fps', action='store_true',
+    parser.add_argument('--nonstandard_fps', dest='nonstandard_fps', action='store_true',
                            help="Check for fps rates typically only supported by special devices.")
-    fps_and_res_group.add_argument('--nonstandard', dest='nonstandard', action='store_true',
+    parser.add_argument('--nonstandard', dest='nonstandard', action='store_true',
                                    help="Check for resolutions and fps rates typically only supported by special devices.")
 
-    res_group.add_argument('--all_resolutions', dest='all_resolutions', action='store_true',
+    parser.add_argument('--all_resolutions', dest='all_resolutions', action='store_true',
                            help="Check every single possible resolution. e.g., 640x480, 640x481, and so on. "
                                 "It could take a while.")
-    fps_group.add_argument('--all_fps', dest='all_fps', action='store_true',
+    parser.add_argument('--all_fps', dest='all_fps', action='store_true',
                            help="Check for fps rates typically only supported by special devices.")
-    fps_and_res_group.add_argument('--all', dest='all', action='store_true',
+    parser.add_argument('--all', dest='all', action='store_true',
                                    help="Check for resolutions and fps rates typically only supported by special devices.")
 
-    res_group.add_argument('--max_resolution', dest='max_resolution', action='store_true',
+    parser.add_argument('--max_resolution', dest='max_resolution', action='store_true',
                            help="Only check max resolution. ")
-    fps_group.add_argument('--max_fps', dest='max_fps', action='store_true',
+    parser.add_argument('--max_fps', dest='max_fps', action='store_true',
                            help="Only check max fps.")
-    fps_and_res_group.add_argument('--max', dest='max', action='store_true',
+    parser.add_argument('--max', dest='max', action='store_true',
                                    help="Only check max resolution and fps.")
 
-    _args: CamArgs = parser.parse_args(args)
+    _args : CamArgs = parser.parse_args(args)
+
+    if (_args.nonstandard and any([_args.all, _args.all_resolutions, _args.all_fps, _args.max, _args.max_resolution, _args.max_fps])) or \
+       (_args.nonstandard_resolutions and any([_args.max_resolution, _args.all_resolutions])) or \
+       (_args.nonstandard_fps and any([_args.max_fps, _args.all_fps])) or \
+       (_args.all and any([_args.nonstandard_fps, _args.nonstandard_resolutions, _args.max, _args.max_fps, _args.max_resolution])) or \
+       (_args.all_resolutions and any([_args.max_resolution])) or \
+       (_args.all_fps and any([_args.max_fps])):
+        parser.error('nonstandard, all, and max are mutually exclusive, unless seperately on resolution and fps.')
+        raise SystemExit
+
+    if (_args.max and any([_args.max_fps, _args.max_resolution])) or \
+       (_args.all and any([_args.all_fps, _args.all_resolutions])) or \
+       (_args.nonstandard and any([_args.nonstandard_fps, _args.nonstandard_resolutions])):
+        raise RedundantArgumentWarning("max, all, and nonstandard make max_resolution, all_fps, etc. redundant.")
 
     if any([_args.all, _args.all_resolutions, _args.all_fps,
-            _args.nonstandard, _args.nonstandard_resolutions, _args.nonstandard_fps]) \
-            and not _args.update:
-        parser.error('-u must be used with any fps or resolution options (except max).')
+    _args.nonstandard, _args.nonstandard_resolutions, _args.nonstandard_fps]) \
+    and not _args.update:
+        parser.error('-u must be used with any fps or resolution options (except --max).')
         raise SystemExit
 
     if any([_args.publish_all, _args.ros, _args.redis]) and not _args.publish:
@@ -98,5 +108,4 @@ def parse_args(args):
 
 if __name__ == '__main__':
     import sys
-
     parse_args(sys.argv)

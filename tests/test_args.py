@@ -3,7 +3,7 @@ import unittest
 import argparse
 
 from NeuralRetina.camera.parse_args import parse_args
-
+from NeuralRetina.camera.parse_args import RedundantArgumentWarning
 
 class TestCamNode(unittest.TestCase):
     #Don't test standard functionality. Only added.
@@ -30,8 +30,10 @@ class TestCamNode(unittest.TestCase):
             with self.assertRaises(argparse.ArgumentError): parse_args(['-u', '--nonstandard_fps', '--max_fps'])
 
     def test_redundant_args(self):
-        with self.assertRaises(SystemExit):
-            with self.assertRaises(argparse.ArgumentError): parse_args(['-u', '--max', '--max_fps'])
+        with self.assertRaises(RedundantArgumentWarning): parse_args(['-u', '--max', '--max_fps'])
+
+    def test_non_conflicting_args(self):
+        parse_args(['-u', '--max_fps', '--nonstandard_resolutions'])
 
     def test_unneeded_args(self): # test --all without -c
         with self.assertRaises(SystemExit):

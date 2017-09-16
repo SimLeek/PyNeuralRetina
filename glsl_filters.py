@@ -9,7 +9,7 @@ import time
 import ModernGL
 from PyQt5 import QtCore, QtOpenGL, QtWidgets, QtGui
 
-from NeuralRetina.camera.get_webcams import *
+from get_webcams import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

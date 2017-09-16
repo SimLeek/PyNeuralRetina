@@ -4,7 +4,7 @@ import time
 import ModernGL
 from PyQt5 import QtCore, QtOpenGL, QtWidgets
 
-from NeuralRetina.camera.get_webcams import *
+from get_webcams import *
 
 
 class CamInputThread(QtCore.QThread):

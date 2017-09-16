@@ -1,5 +1,3 @@
-import argparse
-
 import cv2
 
 
@@ -72,7 +70,7 @@ def ready_camera(cam_num):
 
     return False
 
-from NeuralRetina.camera.get_webcams import capture_cams
+from get_webcams import capture_cams
 
 def show_cams(cam_list  # type: List[cv2.VideoCapture]
               ):  # type: (...) -> None
