@@ -1,31 +1,29 @@
 # todo: draw trees to show correct calling and then check that and return errors before running code
-
 # todo: make all these options through redis (just send a string to cam.parseargs, seperate by spaces, and use argparse)
 import argparse
-
 # todo: add ffmpeg, opencv, other camera getters as options
 
 
 class CamArgs:
-    update: bool
-    show: bool
-    publish: bool
-    publish_all: bool
+    update = None # type: bool
+    show = None  # type: bool
+    publish = None  # type: bool
+    publish_all = None  # type: bool
 
-    ros: bool
-    redis: bool
+    ros = None  # type: bool
+    redis = None  # type: bool
 
-    max: bool
-    max_resolution: bool
-    max_fps: bool
+    max = None  # type: bool
+    max_resolution = None  # type: bool
+    max_fps = None  # type: bool
 
-    all: bool
-    all_resolutions: bool
-    all_fps: bool
+    all = None  # type: bool
+    all_resolutions = None  # type: bool
+    all_fps = None  # type: bool
 
-    nonstandard: bool
-    nonstandard_resolutions: bool
-    nonstandard_fps: bool
+    nonstandard = None  # type: bool
+    nonstandard_resolutions = None  # type: bool
+    nonstandard_fps = None  # type: bool
 
 class RedundantArgumentWarning(Warning):
     pass

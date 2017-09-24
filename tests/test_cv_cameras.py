@@ -18,7 +18,8 @@ class TestCVCameras(unittest.TestCase):
         self.assertTrue(len(cams)>0)  # fails if you don't have any cameras
 
         for _, cam in cams.items():
-            cam.release()
+            pass
+        cam.release()
 
     def test_make_specific_cams(self):
         cam_0 = make_cams(0)

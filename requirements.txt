@@ -1,5 +1,4 @@
 ModernGL
-celery
-celery-pubsub
+redis
 numpy
 opencv-python

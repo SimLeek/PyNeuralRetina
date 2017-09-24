@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 
 
-def make_cam(cam_id: Union[int, str]) -> Union[bool, cv2.VideoCapture]:
+def make_cam(cam_id ) :  # type: (Union[int, str]) -> Union[bool, cv2.VideoCapture]
     cam: cv2.VideoCapture = cv2.VideoCapture(cam_id)
 
     if cam is not None and cam.isOpened():
@@ -11,7 +11,7 @@ def make_cam(cam_id: Union[int, str]) -> Union[bool, cv2.VideoCapture]:
     else:
         return False
 
-def make_cams(*argv : Union[int, str]) -> Dict[Union[int, str], cv2.VideoCapture]:
+def make_cams(*argv ) :  # type: (Union[int, str]) -> Dict[Union[int, str], cv2.VideoCapture]
     cam_list : Dict[cv2.VideoCapture] = {}
 
     if len(argv) == 0:
@@ -25,7 +25,7 @@ def make_cams(*argv : Union[int, str]) -> Dict[Union[int, str], cv2.VideoCapture
 
     return cam_list
 
-def capture_cam(camera : cv2.VideoCapture) -> Union[np.ndarray, bool]:
+def capture_cam(camera ) :  # type: (cv2.VideoCapture) -> Union[np.ndarray, bool]
     (ret, frame) = camera.read()
     if ret is False or not isinstance(frame, np.ndarray):
         return False
