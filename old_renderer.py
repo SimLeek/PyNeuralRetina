@@ -5,6 +5,7 @@ import ModernGL
 from PyQt5 import QtCore, QtOpenGL, QtWidgets
 
 from get_webcams import *
+import os
 
 
 class CamInputThread(QtCore.QThread):
@@ -63,7 +64,9 @@ class QGLWidget(QtOpenGL.QGLWidget):
         self.texture = self.ctx.texture((frame.shape[0],frame.shape[1]), frame.shape[2], frame.tobytes())
 
         #self.texture.use()
-
+        file = open('retina.glsl', 'r')
+        text = file.read()
+        file.close()
 
         prog = self.ctx.program([
             self.ctx.vertex_shader('''
@@ -76,17 +79,7 @@ class QGLWidget(QtOpenGL.QGLWidget):
                     v_tex_coord = tex_coord;
                 }
             '''),
-            self.ctx.fragment_shader('''
-                #version 330
-                uniform sampler2D texture;
-                in vec2 v_tex_coord;
-                out vec4 color;
-                void main() {
-                    vec2 new_coord = vec2(v_tex_coord.x, v_tex_coord.y);
-                    //vec2 new_coord = v_tex_coord;
-                    color = vec4(texture2D(texture, new_coord).rgb, 1.0);
-                }
-            '''),
+            self.ctx.fragment_shader(text),
         ])
 
         vbo = self.ctx.buffer(struct.pack(

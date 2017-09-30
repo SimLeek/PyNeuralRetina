@@ -16,7 +16,7 @@ import cv2
 import os
 from typing import Tuple
 
-def get_no_webcam_image() -> np.ndarray:
+def get_no_webcam_image(): # type: () -> np.ndarray
     return cv2.imread(os.path.join(os.path.dirname(__file__), 'no_input.jpg'),
                            cv2.IMREAD_COLOR)  # type: np.ndarray
 
@@ -27,15 +27,15 @@ class VisionBundle(object):
 
 class GLSLBundle(VisionBundle):
     def __init__(self, *, context, frame_buffer_1, frame_buffer_2, vertex_array, resolution, program, frag):
-        self.context : ModernGL.Context = context
-        self.frame_buffer_1 : ModernGL.Framebuffer = frame_buffer_1
-        self.frame_buffer_2 : ModernGL.Framebuffer = frame_buffer_2
-        self.vertex_array : ModernGL.VertexArray = vertex_array
-        self.resolution : Tuple[int,int]= resolution
-        self.program : ModernGL.Program = program
-        self.frag : str = frag
+        self.context = context  # type: ModernGL.Context
+        self.frame_buffer_1 = frame_buffer_1  # type: ModernGL.Framebuffer
+        self.frame_buffer_2  = frame_buffer_2  # type: ModernGL.Framebuffer
+        self.vertex_array  = vertex_array  # type: ModernGL.VertexArray
+        self.resolution = resolution  # type: Tuple[int,int]
+        self.program = program  # type: ModernGL.Program
+        self.frag = frag  # type: str
 
-        self.texture_in : np.ndarray = None
+        self.texture_in = None  # type: np.ndarray
         pass
 
     def texture_in_numpy(self, np_array: np.ndarray):
@@ -73,8 +73,8 @@ class GLSLBundle(VisionBundle):
         size = frame.shape[1], frame.shape[0]
         ctx = ModernGL.create_standalone_context()
 
-        color_rbo = ctx.renderbuffer(size, samples=ctx.max_samples)
-        depth_rbo = ctx.depth_renderbuffer(size, samples=ctx.max_samples)
+        color_rbo = ctx.renderbuffer(size)
+        depth_rbo = ctx.depth_renderbuffer(size)
         fbo = ctx.framebuffer(color_rbo, depth_rbo)
 
         fbo.use()
@@ -106,34 +106,12 @@ class GLSLBundle(VisionBundle):
         return GLSLBundle(context=ctx, frame_buffer_1=fbo, frame_buffer_2=fbo2, vertex_array=vao, resolution=size,
                           program=prog, frag=fragment_shader)
 
-ren = GLSLBundle.from_fragment_shader('''
-                #version 330
-                uniform sampler2D tex;
-                in vec2 tex_pos;
-                out vec4 color;
-                
-                vec2 fisheye(vec2 in_pos, float amount){
-                        //from: https://stackoverflow.com/a/6227310
 
-                        vec2 center_xform_vec = vec2(0.5, 0.5);
-                        float center_xform_vec_len = length(center_xform_vec);
-                        vec2 r = (in_pos - center_xform_vec);
-                        float r_len = length(r);
-                        vec2 barrel_vec = (r * (1+ amount * r_len * r_len));
+file = open('retina.glsl', 'r')
+text = file.read()
+file.close()
 
-                        float barrel_max = (sqrt(1+(720.0/1280.0)*(720.0/1280.0)) * (1+abs(amount)*center_xform_vec_len*center_xform_vec_len));
-                        vec2 barrel_norm = barrel_vec/barrel_max + .5;
-
-                        return barrel_norm;
-                    }
-                
-                void main() {
-                    //float d = pow(distance(vec2(0, 0), tex_pos),.5);
-                    vec2 new_coord = fisheye(tex_pos, 2.0);
-                    //color = vec4(1-abs(d)/sqrt(.5), 0.0, 0.0, 1.0);
-                    color = vec4( texture(tex, new_coord).bg, 0.5, 1.0);
-                }
-            ''')
+ren = GLSLBundle.from_fragment_shader(text)
 
 ren.texture_in_numpy(frame)
 img = ren.get_np_image()

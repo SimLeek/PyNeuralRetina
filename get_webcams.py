@@ -51,33 +51,3 @@ def end_cams(cam_list  # type: List[cv2.VideoCapture]
     for cam in cam_list:
         cam.release()
 
-
-import celery
-import celery_pubsub
-
-ending = False
-
-@celery.task
-def end():
-    global ending
-    ending = True
-
-celery_pubsub.subscribe('cam.end', end)
-
-
-if __name__ == "__main__":
-    shapes = []
-    cams = make_camlist()
-    while not ending:
-        frames = capture_cams(cams)
-        if len(shapes) != len(frames) or any([shapes[i] != frames[i].shape for i in range(len(frames))]):
-            for i in range(len(frames)):
-                if i >= len(shapes) or shapes[i] != frames[i].shape:
-                    celery_pubsub.publish('cam.' + str(i), data='shape', value=frames[i].shape)
-            shapes[:] = [frame.shape for frame in frames]
-        for f in range(len(frames)):
-            res = celery_pubsub.publish('cam.'+str(f), data='frame', value=frames[f].tobytes())
-
-        #show_cams(cams)
-    end_cams(cams)
-    cv2.destroyAllWindows()

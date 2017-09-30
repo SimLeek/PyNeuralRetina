@@ -54,12 +54,13 @@ class CamInputThread(QtCore.QThread):
         self.parent = parent
 
         self.sig.connect(parent.update_frame)
-
-        self.cam_list = make_camlist()
+        logging.debug("making cam list")
+        self.cam_list = [cv2.VideoCapture(0)]
         # todo: handle different resolutions
-        # self.cam_list[0].set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        # self.cam_list[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        # self.cam_list[0].set(cv2.CAP_PROP_FPS, 60)
+        logging.debug("setting cam data")
+        self.cam_list[0].set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cam_list[0].set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.cam_list[0].set(cv2.CAP_PROP_FPS, 60)
 
     def fps_limit(self):
         logging.debug("fps_limit entered")
@@ -168,23 +169,15 @@ class QGLWidget(QtOpenGL.QGLWidget):
         self.ctx = None  # type: ModernGL.Context
         self.vao = None  # type: ModernGL.VertexArray
 
-        vbo : ModernGL.Buffer = None
+        vbo = None  # type: ModernGL.Buffer
 
         logging.debug("frame entered")
         self.ctx = ModernGL.create_context()
         self.ctx.enable(ModernGL.DEPTH_TEST)
         logging.debug("context made")
 
-        vbo = (self.ctx.buffer(struct.pack(
-            '24f',
-            -1.0, -1.0, 0.0, 1.0,
-            -1.0, 1.0, 0.0, 0.0,
-            1.0, 1.0, 1.0, 0.0,
-            1.0, -1.0, 1.0, 1.0,
-            -1.0, -1.0, 0.0, 1.0,
-            1.0, 1.0, 1.0, 0.0,
+        vbo = self.ctx.buffer(struct.pack('8f', -1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0))
 
-        )))
         logging.debug("vbo made")
 
         # todo: allow resetting of tex for different sizes (close and reopen tex)
@@ -196,57 +189,27 @@ class QGLWidget(QtOpenGL.QGLWidget):
 
         logging.debug("tex made")
 
+        file = open('retina.glsl', 'r')
+        text = file.read()
+        file.close()
+
         self.prog = (self.ctx.program([
             self.ctx.vertex_shader('''
                         #version 330
                         in vec2 vert;
-                        in vec2 tex_coord;
-                        out vec2 v_tex_coord;
+                        out vec2 tex_pos;
                         void main() {
                             gl_Position = vec4(vert, 0.0, 1.0);
-                            v_tex_coord = tex_coord;
+                            tex_pos = vert / 2.0 + vec2(.5, .5);
+                            tex_pos.y = 1-tex_pos.y;//for viewing
                         }
                     '''),
-            self.ctx.fragment_shader('''
-                        #version 330
-                        uniform sampler2D tex;
-                        in vec2 v_tex_coord;
-                        out vec4 color;
-
- vec2 fisheye(vec2 in_pos, float amount){
-                        //from: https://stackoverflow.com/a/6227310
-
-                        vec2 center_xform_vec = vec2(0.5, 0.5);
-                        float center_xform_vec_len = length(center_xform_vec);
-                        vec2 r = (in_pos - center_xform_vec);
-                        float r_len = length(r);
-                        vec2 barrel_vec = (r * (1+ amount * r_len * r_len));
-
-                        float barrel_max = (sqrt(1+(720.0/1280.0)*(720.0/1280.0)) * (1+abs(amount)*center_xform_vec_len*center_xform_vec_len));
-                        vec2 barrel_norm = barrel_vec/barrel_max + .5;
-
-                        return barrel_norm;
-                    }
-
-                        void main() {
-                            vec2 new_coord = fisheye(v_tex_coord, 2);
-                            //vec2 new_coord = v_tex_coord;
-                            color = vec4( texture(tex, new_coord).bgr, 1.0);
-
-                        }
-                    ''' )
+            self.ctx.fragment_shader(text)
         ]))
 
         logging.debug("prog made")
 
-
-        #self.prog.uniforms['tex'].value = (0)
-
-        logging.debug("tex set")
-
-        logging.debug("barrel set")
-
-        self.vao = self.ctx.simple_vertex_array(self.prog, vbo, ['vert', 'tex_coord'])
+        self.vao = self.ctx.simple_vertex_array(self.prog, vbo, ['vert'])
 
         logging.debug("vao made")
 
@@ -267,7 +230,7 @@ class QGLWidget(QtOpenGL.QGLWidget):
         if not isinstance(self.ctx, ModernGL.InvalidObject):
             self.ctx.viewport = (0, 0, self.set_frame_shape[1], self.set_frame_shape[0])
             self.ctx.clear(0.9, 0.9, 0.9)
-            self.vao.render()
+            self.vao.render(ModernGL.TRIANGLE_STRIP)
             self.ctx.finish()
         else:
             return

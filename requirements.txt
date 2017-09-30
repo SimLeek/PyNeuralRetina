@@ -1,4 +1,9 @@
 ModernGL
 redis
 numpy
+#on ubuntu, opencv doesn't work sometimes. You're just screwed, forever. RIP.
+# ...well, you could use anaconda. It's a bit of work though.
 opencv-python
+matplotlib
+#on ubuntu: sudo apt-get install python3-tk
+python3-tk
