@@ -3,7 +3,8 @@ uniform sampler2D tex;
 in vec2 tex_pos;
 out vec4 color;
 
-
+float surround_total;
+float num_total;
 
 //typedef enum {RED, GREEN, BLUE} color_rgb;
 
@@ -40,36 +41,37 @@ float get_center(vec2 pos, uint col){
     return center;
 }
 
-float get_surround(vec2 pos, int radius, uint col){
-    float surround;
+float get_pixel_color(ivec2 pos, uint col){
+    switch(col){
+        case RED:
+            return texelFetch(tex, pos, 0).r;
+        case GREEN:
+            return texelFetch(tex, pos, 0).g;
+        case BLUE:
+            return texelFetch(tex, pos, 0).b;
+    }
+    return 0.0;
+}
+
+void update_surround(vec2 pos, int radius, uint col){
+    float surround_add=0.0;
 
     int rad=radius+1;
-    int num=0;
+    int num_add=0;
+
     for(int i=0; i<2*rad+1; ++i){
-        for (int j=0; j<2*rad+1; ++j){
-            if (i!=0 && j!=0){
-                switch(col){
-                    case RED:
-                        surround = surround + texelFetch(tex, ivec2(pos) + ivec2(i-rad, j-rad), 0).r;
-                        break;
-                    case GREEN:
-                        surround = surround + texelFetch(tex, ivec2(pos) + ivec2(i-rad, j-rad), 0).g;
-                        break;
-                    case BLUE:
-                        surround = surround + texelFetch(tex, ivec2(pos) + ivec2(i-rad, j-rad), 0).b;
-                        break;
-                }
-                num++;
-            }
-        }
+        surround_add += get_pixel_color(ivec2(pos) + ivec2(i-rad, -rad), col);
+        surround_add += get_pixel_color(ivec2(pos) + ivec2(i-rad, rad), col);
+        num_add+=2;
     }
-    if (col==RED){
-    surround = (surround)/(num-1);
-    }else{
-    surround = (surround)/(num);
+    for(int j=1; j<2*rad; ++j){
+        surround_add += get_pixel_color(ivec2(pos) + ivec2(-rad, j-rad), col);
+        surround_add += get_pixel_color(ivec2(pos) + ivec2(rad, j-rad), col);
+        num_add+=2;
     }
 
-    return surround;
+    surround_total = surround_total + surround_add ;
+    num_total = num_total + num_add;
 }
 
 uint center_surround(vec2 pos, int radius, uint col){
@@ -77,7 +79,15 @@ uint center_surround(vec2 pos, int radius, uint col){
     //use: https://gamedev.stackexchange.com/a/98065
 
     float center = get_center(pos, col);
-    float surround = get_surround(pos, radius, col);
+    update_surround(pos, radius, col);
+    float surround;
+
+    if(col==RED){
+     surround = surround_total / (num_total*1.0/*<-input inhibition goes here*/);
+    }else{
+     surround = surround_total / (num_total*1.0/*<-input inhibition goes here*/);
+    }
+
 
    #ifdef SWAP_MSB
    if(center>surround){
@@ -100,7 +110,14 @@ uint surround_center(vec2 pos, int radius, uint col){
     //todo: can use previous surround and center values to speed up
 
     float center = get_center(pos, col);
-    float surround = get_surround(pos, radius, col);
+    update_surround(pos, radius, col);
+    float surround;
+    /*if(col==RED){
+     surround = surround_total / (num_total-1);
+    }else{
+     surround = surround_total / (num_total);
+    }*/
+    surround = surround_total*.9/*<-input inhibition goes here*/ / (num_total);
 
     #ifdef SWAP_MSB
     if(surround>center){
@@ -138,20 +155,55 @@ vec3 rgc(vec2 coord){
     uint red=uint(0);
     uint green = uint(0);
     uint blue = uint(0);
+    //todo: add input image
+    //todo: add input rule: small center surrounds must be much higher than their surround compareed to larger ones
     for(int i=0; i<8; ++i){
 #ifdef SURROUND_CENTER
             red = red | surround_center(coord, i, RED);
-            green = green | surround_center(coord, i, GREEN);
-            blue = blue | surround_center(coord, i, BLUE);
     #ifdef FALSE_COLOR
-            uint red2 = (green&blue); uint green2 = (red&blue); uint blue2 = (red&green);
-            red = red2; green = green2; blue = blue2;
+            uint red2 = (green&blue);
+            red = red2;
     #endif
 #else
+            surround_total = 0.0;
+            num_total = 0;
             red = red | center_surround(coord, i, RED);
+#endif
+        if (red>uint(0)){
+        break;
+        }
+    }
+    for(int i=0; i<8; ++i){
+#ifdef SURROUND_CENTER
+            green = green | surround_center(coord, i, GREEN);
+    #ifdef FALSE_COLOR
+            uint green2 = (red&blue);
+            green = green2;
+    #endif
+#else
+            surround_total = 0.0;
+            num_total = 0;
             green = green | center_surround(coord, i, GREEN);
+#endif
+        if (green>uint(0)){
+        break;
+        }
+    }
+    for(int i=0; i<8; ++i){
+#ifdef SURROUND_CENTER
+            blue = blue | surround_center(coord, i, BLUE);
+    #ifdef FALSE_COLOR
+            uint blue2 = (red&green);
+            blue = blue2;
+    #endif
+#else
+            surround_total = 0.0;
+            num_total = 0;
             blue = blue | center_surround(coord, i, BLUE);
 #endif
+        if (blue>uint(0)){
+        break;
+        }
     }
     vec3 rgc_dot;
     rgc_dot.r = (float(show_level(red)))/255;//todo: report this bug.
@@ -163,10 +215,13 @@ vec3 rgc(vec2 coord){
 
 void main() {
     //consider: https://stackoverflow.com/a/18454838
+    surround_total = 0.0;
+    num_total = 0;
 
     vec2 new_coord = fisheye(tex_pos, 2.0);
 
     vec3 rgc_dot = rgc(vec2(new_coord.x*1280, new_coord.y*720));
+    //rgc_dot +=
 
     color = vec4( rgc_dot.bgr, 1.0);
     //color = vec4(vec3(texelFetch(tex, ivec2(tex_pos*720), 0).bgr), 1.0);
