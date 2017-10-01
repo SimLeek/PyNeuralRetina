@@ -6,6 +6,8 @@ out vec4 color;
 float surround_total;
 float num_total;
 
+float layer_inhb[8];
+
 //typedef enum {RED, GREEN, BLUE} color_rgb;
 
 //consts, because glsl compilers are wimpy
@@ -16,7 +18,7 @@ const uint BLUE  = 0x00000004u;
 //#define SURROUND_CENTER
 //    #define FALSE_COLOR
 #define SWAP_MSB
-//#define SHOW_LEVEL 7
+//#define SHOW_LEVEL 4
 #ifdef SHOW_LEVEL
     uint show_level(uint x) { return ((x)<<(SHOW_LEVEL) & uint(128))%uint(256);}
 #else
@@ -83,9 +85,9 @@ uint center_surround(vec2 pos, int radius, uint col){
     float surround;
 
     if(col==RED){
-     surround = surround_total / (num_total*1.0/*<-input inhibition goes here*/);
+     surround = surround_total / (num_total*layer_inhb[radius]/*<-input inhibition goes here*/);
     }else{
-     surround = surround_total / (num_total*1.0/*<-input inhibition goes here*/);
+     surround = surround_total / (num_total*layer_inhb[radius]/*<-input inhibition goes here*/);
     }
 
 
@@ -117,7 +119,7 @@ uint surround_center(vec2 pos, int radius, uint col){
     }else{
      surround = surround_total / (num_total);
     }*/
-    surround = surround_total*.9/*<-input inhibition goes here*/ / (num_total);
+    surround = surround_total*layer_inhb[radius]/*<-input inhibition goes here*/ / (num_total);
 
     #ifdef SWAP_MSB
     if(surround>center){
@@ -217,10 +219,11 @@ void main() {
     //consider: https://stackoverflow.com/a/18454838
     surround_total = 0.0;
     num_total = 0;
+    layer_inhb = float[](.5, .75, 0.875, 0.9375, 0.96875, 0.984375, 0.9921875, 1.0);
 
-    vec2 new_coord = fisheye(tex_pos, 2.0);
+    //vec2 new_coord = fisheye(tex_pos, 2.0);
 
-    vec3 rgc_dot = rgc(vec2(new_coord.x*1280, new_coord.y*720));
+    vec3 rgc_dot = rgc(vec2(tex_pos.x*1280, tex_pos.y*720));
     //rgc_dot +=
 
     color = vec4( rgc_dot.bgr, 1.0);
